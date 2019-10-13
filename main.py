@@ -157,26 +157,27 @@ class Form(QWidget):
         self.lb_path.setText(fn)
 
         dz = Duzon(self.full_fn)
-        df = dz.status()
-        self.th.total_line = len(df)
-        self.lb_cnt.setText(str(self.th.total_line))
-        hms = convert.sec_to_hms(int(self.th.total_line * 1.56))
-        if len(hms) == 3:
-            hour, min, sec = hms[0], hms[1], hms[2]
-            msg = f'{hour}:{min}:{sec}'
-        elif len(hms) == 2:
-            min, sec = hms[0], hms[1]
-            if min < 10:
-                min = str(min).zfill(2)
-            msg = f'00:{min}:{sec}'
-        elif len(hms) == 1:
-            sec = hms[0]
-            msg = f'00:00:{sec}'
-        self.lb_time.setText(msg)
-         
-        # self.th.total_line = 1000
-        df.to_excel('c:/zz/ttt.xlsx')
-           
+        check, df = dz.status()
+        if check:
+            self.th.total_line = len(df)
+            self.lb_cnt.setText(str(self.th.total_line))
+            hms = convert.sec_to_hms(int(self.th.total_line * 1.56))
+            if len(hms) == 3:
+                hour, min, sec = hms[0], hms[1], hms[2]
+                msg = f'{hour}:{min}:{sec}'
+            elif len(hms) == 2:
+                min, sec = hms[0], hms[1]
+                if min < 10:
+                    min = str(min).zfill(2)
+                msg = f'00:{min}:{sec}'
+            elif len(hms) == 1:
+                sec = hms[0]
+                msg = f'00:00:{sec}'
+            self.lb_time.setText(msg)
+            
+            # self.th.total_line = 1000
+            df.to_excel('c:/zz/ttt.xlsx')
+            
     @pyqtSlot()
     def input_start(self):        
         self.th.start()
