@@ -29,6 +29,24 @@ def sec_to_hms(sec, div=60):
         return hour, min, _sec
     return min, _sec
 
+# 초(secend) 로 시간(H,M,S) 구하기
+def sec_to_hms_msg(sec, div=60):
+    min = sec // div
+    _sec = sec % div
+    if _sec < 10:
+        _sec = str(_sec).zfill(2)
+    if min < 10:
+        min = str(min).zfill(2)
+    if int(min) > div:
+        hour = int(min) // div
+        min = int(min) % div
+        if int(min) < 10:
+            min = str(min).zfill(2)
+        msg = f'{hour}:{min}:{_sec}'
+        return msg
+    msg = f'00:{min}:{_sec}'
+    return msg
+
 
 DZ_code_system = {
     '당좌자산' : list(range(101, 145 + 1)),
