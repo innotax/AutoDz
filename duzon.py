@@ -78,16 +78,16 @@ class Duzon():
     def input_dz(self, data):
         time.sleep(0.05)
 
-        월 = data['월']
-        일 = data['일']
-        구분 = data['구분']
-        계정코드 = data['계정코드']
-        계정과목 = data['계정과목']
-        거래처코드 = data['거래처코드']
-        거래처명 = data['거래처명']
-        금액 = data['금액']
-        적요코드 = data['적요코드']
-        적요 = data['적요']
+        월 = data['월'].strip()
+        일 = data['일'].strip()
+        구분 = data['구분'].strip()
+        계정코드 = data['계정코드'].strip()
+        계정과목 = data['계정과목'].strip()
+        거래처코드 = data['거래처코드'].strip()
+        거래처명 = data['거래처명'].strip()
+        금액 = data['금액'].strip()
+        적요코드 = data['적요코드'].strip()
+        적요 = data['적요'].strip()
 
         # m.typewrite(월)
         # m.typewrite(일)
@@ -106,7 +106,7 @@ class Duzon():
         pyperclip.copy(계정코드)
         m.hotkey('ctrl', 'v')
         m.press('enter')
-        time.sleep(0.05)
+        # time.sleep(0.05)
 
         if 거래처코드 != "00000":
             pyperclip.copy(거래처코드)

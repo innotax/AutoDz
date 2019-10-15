@@ -127,7 +127,7 @@ class Thread(QThread):
                 self.msleep(100)
                 # print('idx',idx)
                 self.dz.input_dz(send_data)
-                self.msleep(100)
+                self.msleep(300)
                 # result = self.dz.input_dz(send_data)
                 # yield result
                 # if result:
@@ -182,6 +182,7 @@ class Form(QWidget):
         self.dz = duzon.Duzon()
         self.df = None
         self.check_term_flag = False
+        self.count_pause = 0
                 
         self.lb_path = QLabel("Excel:")
         self.pb_xl = QPushButton("엑셀선택")        
@@ -361,6 +362,7 @@ class Form(QWidget):
     @pyqtSlot()
     def input_start(self):
         if self.th.total_line > 0:
+            self.count_pause += 1
             self.th.start()
             self.pgb.setMaximum(self.th.total_line -1)
             # 쓰레드 연결
@@ -372,14 +374,14 @@ class Form(QWidget):
                     """QPushButton { background-color: #e1e1e1;}""")
                 self.pb_run.setStyleSheet(
                     """QPushButton { background-color: #ff0000; color: yellow; font: bold }""")
-                
-                m.click(self.th.dz_A)
-                m.press('pagedown')
+                if self.count_pause > 1:
+                    m.click(self.th.dz_A)
+                    m.press('pagedown')
             else:
                 self.pb_run.setStyleSheet(
                     """QPushButton { background-color: #ffff00; color: blue; font: bold }""")  
-                # m.click(self.th.dz_A)
-                # m.press('pagedown')
+                m.click(self.th.dz_A)
+                m.press('pagedown')
         else:
             pass
 
