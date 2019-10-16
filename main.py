@@ -8,22 +8,37 @@ __author__ = "Deokyu Lim <hong18s@gmail.com>"
 
 import os
 import sys
+import json
 import timeit
 import pyautogui as m
+import pyperclip
 
 from PyQt5.QtWidgets import QWidget
 from PyQt5.QtWidgets import QFileDialog
 from PyQt5.QtWidgets import QPushButton
-from PyQt5.QtWidgets import QLineEdit
+from PyQt5.QtWidgets import QLineEdit, QDateEdit, QComboBox
 from PyQt5.QtWidgets import QLabel, QProgressBar
 from PyQt5.QtWidgets import QApplication, QDesktopWidget, QMessageBox
-from PyQt5.QtWidgets import QBoxLayout, QFormLayout, QHBoxLayout
+from PyQt5.QtWidgets import QBoxLayout, QFormLayout, QHBoxLayout, QGroupBox
 from PyQt5.QtGui import QIcon, QRegExpValidator, QDoubleValidator, QIntValidator, QFont, QPixmap
-from PyQt5.QtCore import Qt, QRegExp, QThread, QWaitCondition, QMutex, pyqtSignal, pyqtSlot
+from PyQt5.QtCore import Qt, QDate, QRegExp, QThread, QWaitCondition, QMutex, pyqtSignal, pyqtSlot
+
+# 상위폴더 내 파일 import  https://brownbears.tistory.com/296
+sys.path.append(os.path.dirname(os.path.abspath(os.path.dirname(__file__))))
 
 import duzon 
 import convert
 
+# ===== Config =====
+FULLPATH_SETUP_JSON = 'C:\zz\project\Automation\setup.json'
+with open(FULLPATH_SETUP_JSON, encoding='utf-8') as fn:
+    json_to_dict = json.load(fn)
+
+SETUP_DIC = json_to_dict
+
+m.PAUSE = 0.05
+m.FAILSAFE = True
+## ==================
 
 def get_xy(img):
     try:
@@ -84,10 +99,12 @@ class Thread(QThread):
         self.cond = QWaitCondition()
         self.mutex = QMutex()
         self.cnt = 0
+        self.check_term = SETUP_DIC['Constant']['thread_check_interval']
         self.df = None
         self.total_line = None
-        self.check_term = 10
         self.dz_A = None
+        self.Dz_Card = SETUP_DIC['DzAccCode']['Card']
+        self.접대비계정 = SETUP_DIC['DzAccCode']['접대비계정']
 
         self._status = False
         self.dz = duzon.Duzon()
@@ -123,14 +140,13 @@ class Thread(QThread):
 
                 if not self._status:
                     self.cond.wait(self.mutex)
-                send_data = self.make_send_dict(idx)
-                self.msleep(100)
+                # send_data = self.make_send_dict(idx)
+                # self.msleep(100)
                 # print('idx',idx)
-                self.dz.input_dz(send_data)
-                self.msleep(300)
-                # result = self.dz.input_dz(send_data)
-                # yield result
-                # if result:
+                # self.dz.input_dz(send_data)
+                self.input_dz(idx)
+                # self.msleep(300)
+                
                 self.change_value.emit(self.cnt)
                 if self.cnt % self.check_term ==0:
                     self.change_term.emit()
@@ -154,6 +170,73 @@ class Thread(QThread):
         
         return data
 
+    def input_dz(self, idx):
+        # time.sleep(0.05)
+
+        월 = str(self.df['월'][idx]).strip()
+        일 = str(self.df['일'][idx]).strip()
+        구분 = str(self.df['구분'][idx]).strip()
+        계정코드 = str(self.df['계정코드'][idx]).strip()
+        계정과목 = self.df['계정과목'][idx].strip()
+        거래처코드 = str(self.df['거래처코드'][idx]).strip()
+        거래처명 = str(self.df['거래처명'][idx]).strip()
+        금액 = str(self.df['금액'][idx]).strip()
+        적요코드 = str(self.df['적요코드'][idx]).strip()
+        적요 = str(self.df['적요'][idx]).strip()
+
+        # m.typewrite(월)
+        # m.typewrite(일)
+        # m.typewrite(구분)
+        # m.typewrite(계정코드)
+
+        pyperclip.copy(월)
+        m.hotkey('ctrl', 'v')
+        m.press('enter')
+        pyperclip.copy(일)
+        m.hotkey('ctrl', 'v')
+        m.press('enter')
+        pyperclip.copy(구분)
+        m.hotkey('ctrl', 'v')
+        m.press('enter')
+        pyperclip.copy(계정코드)
+        m.hotkey('ctrl', 'v')
+        m.press('enter')
+        # time.sleep(0.05)
+
+        if 거래처코드 != "00000":
+            pyperclip.copy(거래처코드)
+            m.hotkey('ctrl', 'v')
+            m.press('enter')
+        else:
+            m.press('enter')
+
+            pyperclip.copy(거래처명)
+            m.hotkey('ctrl', 'v')
+            m.press('enter')
+
+        pyperclip.copy(금액)
+        m.hotkey('ctrl', 'v')
+        m.press('enter')
+
+        if 계정코드 in self.접대비계정:
+            적요코드 = '02'
+            m.press('enter')
+
+        elif (int(구분) in [1, 3] and int(금액) > 30000
+                and int(계정코드) in self.Dz_Card):
+            m.press('enter')
+            pyperclip.copy(적요)
+            m.hotkey('ctrl', 'v')
+            m.press('enter')
+            m.press('enter')
+            m.press('enter')
+
+        else:
+            m.press('enter')
+            pyperclip.copy(적요)
+            m.hotkey('ctrl', 'v')
+            m.press('enter')
+
     def toggle_status(self):
         self._status = not self._status
         if self._status:
@@ -164,47 +247,61 @@ class Thread(QThread):
         return self._status
 
 
-class Form(QWidget):
+class MainGUI(QWidget):
     def __init__(self):
         QWidget.__init__(self, flags=Qt.Widget)
         rect = QDesktopWidget().availableGeometry()   # 작업표시줄 제외한 화면크기 반환
         max_x = rect.width()
         max_y = rect.height()
-
-        width, height = 320, 200
+        width = SETUP_DIC['Constant']['main_gui_width']
+        height = SETUP_DIC['Constant']['main_gui_height']
         left = max_x - width
         top = max_y - height
         self.setGeometry(left, top, width, height)
         self.setWindowTitle("더존 일반전표 입력")
-
-        self.th = Thread()
-        # self.th.start()
-        self.dz = duzon.Duzon()
-        self.df = None
-        self.check_term_flag = False
-        self.count_pause = 0
                 
         self.lb_path = QLabel("Excel:")
         self.pb_xl = QPushButton("엑셀선택")        
-        self.le_start = QLineEdit()  # 시작년얼일
-        self.le_end = QLineEdit()  # 종료년월일
+        self.dateed_start = QDateEdit()  # 시작년얼일
+        self.dateed_start.setDate(QDate.currentDate())
+        self.dateed_start.setCalendarPopup(True)
+        self.dateed_end = QDateEdit()  # 종료년월일
+        self.dateed_end.setDate(QDate.currentDate())
+        self.dateed_end.setCalendarPopup(True)
+
         self.lb_cnt = QLabel()    # 총입력라인수
         self.lb_time = QLabel("00:00:00...")    # 예상소요시간
         self.pb_term = QPushButton("기간재설정")
         self.pb_run = QPushButton("입력시작")
+        self.pb_help = QPushButton()
+        self.pb_help.setIcon(QIcon('data/help.ico'))
+        self.pb_help.setFixedWidth(30)
+        self.pb_help.setStyleSheet(
+            """QPushButton { border-image: url(:data/help.ico); width:20px; height:20px }""")
+
         self.pgb = QProgressBar()
         
-        self.le_xy = QLineEdit()  # 일반전표입력좌표
-
-        self.le_xy.setPlaceholderText("x좌표,y좌표")
+        self.cb_dz = QComboBox()  # 스레드속도
+        self.cb_th = QComboBox()  # 스레드속도
+        self.le_dz_shortcut = QLineEdit("단축키")
+        self.le_dz_shortcut.setStyleSheet(
+            """QLineEdit { width:20px; height:20px }""")
+        self.pb_save = QPushButton()
+        # QIcon width # pyinstaller image err solution
+        self.pb_save.setIcon(QIcon('data/save.ico'))
+        self.pb_save.setFixedWidth(30)
+        self.pb_save.setStyleSheet(   
+            """QPushButton { border-image: url(:data/save.ico); width:20px; height:20px }""")
+        
+        # self.le_xy.setPlaceholderText("x좌표,y좌표")
 
         flo = QFormLayout()
 
         hbox1 = QHBoxLayout()
         flo1 = QFormLayout()
         flo2 = QFormLayout()
-        flo1.addRow('시작일', self.le_start)
-        flo2.addRow('종료일', self.le_end)
+        flo1.addRow('시작일', self.dateed_start)
+        flo2.addRow('종료일', self.dateed_end)
         hbox1.addLayout(flo1)
         hbox1.addLayout(flo2)
 
@@ -212,10 +309,7 @@ class Form(QWidget):
         hbox2.addWidget(self.pb_xl)
         hbox2.addWidget(self.pb_term)
         hbox2.addWidget(self.pb_run)
-
-        flo.addRow(hbox1)
-        flo.addRow(hbox2)
-        flo.addRow(self.lb_path)
+        hbox2.addWidget(self.pb_help)
 
         hbox3 = QHBoxLayout()
         flo3 = QFormLayout()
@@ -225,33 +319,41 @@ class Form(QWidget):
         hbox3.addLayout(flo3)
         hbox3.addLayout(flo4)
 
+        hbox4 = QHBoxLayout()
+        hbox4.addWidget(self.cb_dz)
+        hbox4.addWidget(self.cb_th)
+        hbox4.addWidget(self.le_dz_shortcut)
+        hbox4.addWidget(self.pb_save)
+
+        gbx = QGroupBox("속도:1.더존,2.쓰레드 / 전표입력단축키/저장")
+        gbx.setLayout(hbox4)
+
+        flo.addRow(hbox1)
+        flo.addRow(hbox2)
+        flo.addRow(self.lb_path)
         flo.addRow(hbox3)
         flo.addRow(self.pgb)
-        flo.addRow('일반전표입력 좌표', self.le_xy)
+        flo.addRow(gbx)  # "속도(쓰레드,더존)/단축키",
 
-        # self.lb_test = QLabel()
-        # flo.addRow('lb_test ', self.lb_test)
-
-
-        # 입력제한 http://bitly.kr/wmonM2
-        self.le_start.setMaxLength(8)
-        self.le_end.setMaxLength(8)
-        self.le_start.setInputMask("9999-99-99")
-        self.le_end.setInputMask("0000-00-00")
-
-        self.le_start.setStyleSheet(
-            """QLineEdit {  width:55px; height:20px }""")   # ; width:30px; height:30px
-        self.le_end.setStyleSheet(
-            """QLineEdit { width:55px; height:20px }""")
-        self.le_xy.setStyleSheet(
-            """QLineEdit { width:40px; height:20px }""")
+        # self.le_xy.setStyleSheet(
+        #     """QLineEdit { width:40px; height:20px }""")
         self.lb_path.setStyleSheet(
             """QLabel { color: blue; font: bold; }""")    # font: 10pt}""")
         self.pb_xl.setStyleSheet(
-            """QPushButton { background-color: #ffff00; color: blue; font: bold }""")
+            """QPushButton { background-color: #c5d1e9; color: blue; font: bold }""")  # ffff00
 
         self.setLayout(flo)
 
+class Main(MainGUI):
+    def __init__(self):
+        super().__init__()
+
+        self.th = Thread()
+        # self.th.start()
+        self.dz = duzon.Duzon()
+        self.df = None
+        self.check_term_flag = False
+        self.count_pause = 0
         # 시그널 슬롯 연결
         self.pb_xl.clicked.connect(self.get_file_name)
         self.pb_term.clicked.connect(self.set_term)
@@ -268,8 +370,6 @@ class Form(QWidget):
         self.lb_path.setText("Excel:")
         self.lb_cnt.clear()
         self.lb_time.setText("00:00:00...")
-        self.le_start.clear()
-        self.le_end.clear()
         
         filename = QFileDialog.getOpenFileName(
             caption="FILE DIALOG", directory=os.path.join(os.path.expanduser('~'), 'Desktop'), filter="*.xls*")
@@ -296,11 +396,12 @@ class Form(QWidget):
                 msg = f'00:00:{sec}'
             self.lb_time.setText(msg)
 
-            # self.le_start.setInputMask("")
-            # self.le_start.setPlaceholderText(str(self.df['년월일'].min()))
-            self.le_start.setText(str(self.df['년월일'].min()))
-            # self.le_start.setInputMask("0000-00-00")
-            self.le_end.setText(str(self.df['년월일'].max()))
+            start_YMD = str(self.df['년월일'].min())
+            s_yy, s_mm, s_dd = int(start_YMD[:4]), int(start_YMD[4:6]), int(start_YMD[6:8])
+            self.dateed_start.setDate(QDate(s_yy, s_mm, s_dd))
+            end_YMD = str(self.df['년월일'].max())
+            e_yy, e_mm, e_dd = int(end_YMD[:4]), int(end_YMD[4:6]), int(end_YMD[6:8])
+            self.dateed_end.setDate(QDate(e_yy, e_mm, e_dd))
 
             self.pb_xl.setStyleSheet(
                 """QPushButton { background-color: #e1e1e1;}""")
@@ -322,15 +423,15 @@ class Form(QWidget):
             msgTF = MsgBoxTF(msgbox_title, msg)
             TF = msgTF.initUI()
             if TF:
-                self.le_start.setStyleSheet(
-                    """QLineEdit { background-color: #ffff00; color: blue;}""")
-                self.le_end.setStyleSheet(
-                    """QLineEdit { background-color: #ffff00; color: blue; }""")
+                self.dateed_start.setStyleSheet(
+                    """QDateEdit { background-color: #c5d1e9; color: blue;}""")
+                self.dateed_end.setStyleSheet(
+                    """QDateEdit { background-color: #c5d1e9; color: blue; }""")
                 self.pb_term.setStyleSheet(
-                    """QPushButton { background-color: #ffff00; color: blue; font: bold }""")
+                    """QPushButton { background-color: #c5d1e9; color: blue; font: bold }""")
             else:
                 self.pb_run.setStyleSheet(
-                    """QPushButton { background-color: #ffff00; color: blue; font: bold }""")
+                    """QPushButton { background-color: #c5d1e9; color: blue; font: bold }""")
 
                 pass
             
@@ -339,8 +440,8 @@ class Form(QWidget):
     @pyqtSlot()
     def set_term(self):
         if len(self.df)>0:
-            start = self.le_start.text().replace('-','')
-            end = self.le_end.text().replace('-','')
+            start = "".join(str(self.dateed_start.date().toPyDate()).split("-"))
+            end = "".join(str(self.dateed_end.date().toPyDate()).split("-"))
             start_day = int(start)
             end_day = int(end)
             self.df = self.df[(self.df['년월일'] >= start_day) & (self.df['년월일'] <= end_day)]
@@ -351,7 +452,7 @@ class Form(QWidget):
             hms_msg = convert.sec_to_hms_msg(int(self.th.total_line * 1.56))
             self.lb_time.setText(hms_msg)
             self.pb_run.setStyleSheet(
-                """QPushButton { background-color: #ffff00; color: blue; font: bold }""")
+                """QPushButton { background-color: #c5d1e9; color: blue; font: bold }""")
 
             self.df.to_excel('c:/zz/ttt.xlsx')
         else:
@@ -379,9 +480,9 @@ class Form(QWidget):
                     m.press('pagedown')
             else:
                 self.pb_run.setStyleSheet(
-                    """QPushButton { background-color: #ffff00; color: blue; font: bold }""")  
-                m.click(self.th.dz_A)
-                m.press('pagedown')
+                    """QPushButton { background-color: #c5d1e9; color: blue; font: bold }""")
+                # m.click(self.th.dz_A)
+                # m.press('pagedown')
         else:
             pass
 
@@ -404,6 +505,6 @@ class Form(QWidget):
 
 if __name__ == "__main__":
     app = QApplication(sys.argv)
-    form = Form()
-    form.show()
+    main = Main()
+    main.show()
     exit(app.exec_())
