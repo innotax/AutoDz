@@ -2,6 +2,7 @@
     "JsonPath": "",
     "DzImgPath": "",
     "Constant":{
+        "엑셀제목라인": 9,
         "thread_check_interval": 10,
         "main_gui_width": 350,
         "main_gui_height": 230
