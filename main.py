@@ -112,6 +112,12 @@ class Thread(QThread):
     def __del__(self):
         self.wait()
 
+    def set_velocity(self, dz_velocity, th_velocoty):
+        self.dz_v = dz_velocity
+        self.th_v = th_velocoty
+        m.PAUSE = self.dz_v
+        print("="*10)
+
     def run(self):
         try:
             print(img_path)
@@ -122,10 +128,14 @@ class Thread(QThread):
 
         if self.dz_A !=None:
             m.click(self.dz_A)
-            _x, _y = self.dz_A
-            dz_ilban = (_x + 100, _y + 223)
-            m.click(dz_ilban)
-            self.msleep(1000)
+            # _x, _y = self.dz_A
+            # dz_ilban = (_x + 100, _y + 223)
+            # m.click(dz_ilban)
+            m.hotkey('ctrl', 'w')
+            dz_ilban_shortcut = SETUP_DIC['DzShotcut']['일반전표입력']
+            m.typewrite(dz_ilban_shortcut)
+            m.press('enter')
+            self.msleep(100)
             print("start"*10)
             start_month = str(self.df['년월일'].min())[4:6]
             end_month = str(self.df['년월일'].max())[4:6]
@@ -133,6 +143,7 @@ class Thread(QThread):
             m.typewrite(end_month)
             self.msleep(100)
             df_idx_lst = list(self.df.index)
+            self.msleep(1000)
 
             for self.cnt, idx in enumerate(df_idx_lst[:]):
                 # goto = False
@@ -141,18 +152,18 @@ class Thread(QThread):
                 if not self._status:
                     self.cond.wait(self.mutex)
                 # send_data = self.make_send_dict(idx)
-                # self.msleep(100)
+                self.msleep(self.th_v)
                 # print('idx',idx)
                 # self.dz.input_dz(send_data)
                 self.input_dz(idx)
-                # self.msleep(300)
+                self.msleep(2000)
                 
                 self.change_value.emit(self.cnt)
                 if self.cnt % self.check_term ==0:
                     self.change_term.emit()
 
                 self.cnt += 1            
-                self.msleep(50)  # ※주의 QThread에서 제공하는 sleep을 사용
+                # self.msleep(self.th_v)  # ※주의 QThread에서 제공하는 sleep을 사용
                 self.mutex.unlock()
     
     def make_send_dict(self, idx):
@@ -172,6 +183,7 @@ class Thread(QThread):
 
     def input_dz(self, idx):
         # time.sleep(0.05)
+        # self.msleep(self.th_v)
 
         월 = str(self.df['월'][idx]).strip()
         일 = str(self.df['일'][idx]).strip()
@@ -188,6 +200,7 @@ class Thread(QThread):
         # m.typewrite(일)
         # m.typewrite(구분)
         # m.typewrite(계정코드)
+        # self.msleep(self.th_v)
 
         pyperclip.copy(월)
         m.hotkey('ctrl', 'v')
@@ -237,6 +250,8 @@ class Thread(QThread):
             m.hotkey('ctrl', 'v')
             m.press('enter')
 
+        self.msleep(self.th_v)
+
     def toggle_status(self):
         self._status = not self._status
         if self._status:
@@ -259,6 +274,8 @@ class MainGUI(QWidget):
         top = max_y - height
         self.setGeometry(left, top, width, height)
         self.setWindowTitle("더존 일반전표 입력")
+
+        self.setup_dic = SETUP_DIC
                 
         self.lb_path = QLabel("Excel:")
         self.pb_xl = QPushButton("엑셀선택")        
@@ -283,6 +300,25 @@ class MainGUI(QWidget):
         
         self.cb_dz = QComboBox()  # 스레드속도
         self.cb_th = QComboBox()  # 스레드속도
+
+        dz_velocity_level = SETUP_DIC['velocity']['pyautogui']['level']
+        dz_velocity_items = list(dz_velocity_level.keys())
+        self.cb_dz.addItems(dz_velocity_items)
+        self.dz_velocity_default = SETUP_DIC['velocity']['pyautogui']['default']
+        for k, v in dz_velocity_level.items():
+            if v == self.dz_velocity_default:
+                dz_level = k
+        self.cb_dz.setCurrentIndex(dz_velocity_items.index(dz_level))
+
+        th_velocity_level = SETUP_DIC['velocity']['QThread']['level']
+        th_velocity_items = list(th_velocity_level.keys())
+        self.cb_th.addItems(th_velocity_items)
+        self.th_velocity_default = SETUP_DIC['velocity']['QThread']['default']
+        for k, v in th_velocity_level.items():
+            if v == self.th_velocity_default:
+                th_level = k
+        self.cb_th.setCurrentIndex(th_velocity_items.index(th_level))
+
         self.le_dz_shortcut = QLineEdit("단축키")
         self.le_dz_shortcut.setStyleSheet(
             """QLineEdit { width:20px; height:20px }""")
@@ -462,27 +498,42 @@ class Main(MainGUI):
             
     @pyqtSlot()
     def input_start(self):
-        if self.th.total_line > 0:
-            self.count_pause += 1
-            self.th.start()
-            self.pgb.setMaximum(self.th.total_line -1)
-            # 쓰레드 연결
-            self.th.toggle_status()
-            self.pb_run.setText({True: "입력중지", False: "입력시작"}[self.th.status])
-            # self.dz.input_dz(self.th.status)
-            if self.th.status:
-                self.pb_term.setStyleSheet(
-                    """QPushButton { background-color: #e1e1e1;}""")
-                self.pb_run.setStyleSheet(
-                    """QPushButton { background-color: #ff0000; color: yellow; font: bold }""")
-                if self.count_pause > 1:
-                    m.click(self.th.dz_A)
-                    m.press('pagedown')
+        msgbox_title = "거래처등록(일반,금융,카드)"
+        msg = """더존 거래처코드와 수지라 거래처코드가<br>
+                일치하지 않으면 오류가 발생합니다 !!! <br>
+                꼭 6.붙여넣기목록 > 학습로직 에서 <br>
+                기초코드등록 후 작업을 시작하세요 !<br>
+                YES(입력시작)"""
+        msgTF = MsgBoxTF(msgbox_title, msg)
+        TF = msgTF.initUI()
+        if TF:
+            if self.th.total_line > 0:
+                print(self.th.total_line)
+                print(self.dz_velocity_default, self.th_velocity_default)
+                self.count_pause += 1
+                self.th.set_velocity(
+                    self.dz_velocity_default, self.th_velocity_default)
+                self.th.start()
+                self.pgb.setMaximum(self.th.total_line -1)
+                # 쓰레드 연결
+                self.th.toggle_status()
+                self.pb_run.setText({True: "입력중지", False: "입력시작"}[self.th.status])
+                # self.dz.input_dz(self.th.status)
+                if self.th.status:
+                    self.pb_term.setStyleSheet(
+                        """QPushButton { background-color: #e1e1e1;}""")
+                    self.pb_run.setStyleSheet(
+                        """QPushButton { background-color: #ff0000; color: yellow; font: bold }""")
+                    if self.count_pause > 1:
+                        m.click(self.th.dz_A)
+                        m.press('pagedown')
+                else:
+                    self.pb_run.setStyleSheet(
+                        """QPushButton { background-color: #c5d1e9; color: blue; font: bold }""")
+                    # m.click(self.th.dz_A)
+                    # m.press('pagedown')
             else:
-                self.pb_run.setStyleSheet(
-                    """QPushButton { background-color: #c5d1e9; color: blue; font: bold }""")
-                # m.click(self.th.dz_A)
-                # m.press('pagedown')
+                pass
         else:
             pass
 
